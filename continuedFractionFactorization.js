@@ -220,38 +220,18 @@ function getCongruencesUsingContinuedFraction(primes, n) {
 
 function BitSet(count) {
   this.data = new Array(Math.ceil(count / 32)).fill(0);
-  this.size = count;
 }
-BitSet.prototype.get = function (index) {
-  if (index < 0 || index >= this.size) {
-    throw new RangeError();
-  }
-  var i = index >> 5;
-  var r = index - (i << 5);
-  return (this.data[i] & (1 << r)) !== 0 ? 1 : 0;
+BitSet.prototype.has = function (index) {
+  return (this.data[Math.floor(index / 32)] & (1 << (index % 32))) !== 0;
 };
-BitSet.prototype.set = function (index, value) {
-  if (index < 0 || index >= this.size) {
-    throw new RangeError();
-  }
-  if (value !== 1) {
-    throw new RangeError();
-  }
-  var i = index >> 5;
-  var r = index - (i << 5);
-  this.data[i] = (this.data[i] | (1 << r));
+BitSet.prototype.add = function (index) {
+  this.data[Math.floor(index / 32)] |= (1 << (index % 32));
 };
 BitSet.prototype.xor = function (other) {
-  var n = Math.max(this.data.length, other.data.length);
-  if (n !== this.data.length || n !== other.data.length) {
-    throw new RangeError();
+  const n = Math.min(this.data.length, other.data.length);
+  for (let i = 0; i < n; i += 1) {
+    this.data[i] ^= other.data[i];
   }
-  for (var i = 0; i < n; i += 1) {
-    this.data[i] = (this.data[i] ^ other.data[i]);
-  }
-};
-BitSet.prototype.toString = function () {
-  return this.data.map(x => x.toString(2).padStart(32, '0').split('').reverse().join(' ')).join('\n');
 };
 
 // factorizations - array of arrays of powers
@@ -262,21 +242,21 @@ function solve(factorizations) {
   // 2. row reduce
   var M = new Array(factorizations.length);
   for (var i = 0; i < M.length; i++) {
-    M[i] = new BitSet(primeBaseSize + M.length);
+    const row = new BitSet(primeBaseSize + M.length);
     const f = factorizations[i];
     for (var j = 0; j < primeBaseSize; j += 1) {
-      var e = f[j];
-      if (e % 2 !== 0) {
-        M[i].set(j, 1);
+      if (f[j] % 2 !== 0) {
+        row.add(j);
       }
     }
-    M[i].set(primeBaseSize + i, 1);
+    row.add(primeBaseSize + i);
+    M[i] = row;
   }
   //console.log(M.map(x => x.toString()).join('\n'))
   var pivotRow = 0;
   for (var pivotColumn = 0; pivotColumn < primeBaseSize; pivotColumn += 1) {
     var row = pivotRow;
-    while (row < M.length && M[row].get(pivotColumn) === 0) {
+    while (row < M.length && !M[row].has(pivotColumn)) {
       row += 1;
     }
     if (row < M.length) {
@@ -288,7 +268,7 @@ function solve(factorizations) {
       }
       // row-reduction:
       for (var i = pivotRow + 1; i < M.length; i++) {
-        if (M[i].get(pivotColumn) === 1) {
+        if (M[i].has(pivotColumn)) {
           M[i].xor(M[pivotRow]);
         }
       }
@@ -300,7 +280,7 @@ function solve(factorizations) {
     var row = M[pivotRow];
     var solution = [];
     for (var i = 0; i < M.length; i += 1) {
-      if (row.get(primeBaseSize + i) === 1) {
+      if (row.has(primeBaseSize + i)) {
         solution.push(i);
       }
     }
