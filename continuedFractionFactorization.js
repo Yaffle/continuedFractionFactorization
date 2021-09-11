@@ -97,7 +97,7 @@ function modPow(a, n, m) {
   a = Number(a);
   n = Number(n);
   m = Number(m);
-  if (Math.abs(m) > Math.floor(Math.sqrt(Number.MAX_SAFE_INTEGER)) || n < 0) {
+  if (Math.abs(m) > Math.floor(Math.sqrt(Number.MAX_SAFE_INTEGER)) || n < 0 || a % m === 0) {
     throw new RangeError();
   }
   a = a % m;
@@ -119,8 +119,12 @@ function isQuadraticResidueModuloPrime(a, p) {
   }
   console.assert(p % 2 === 1);
   // https://en.wikipedia.org/wiki/Euler%27s_criterion
-  const value = modPow(Number(BigInt(a) % BigInt(p)), (p - 1) / 2, p);
-  console.assert(value === 1 || value === p - 1 || value === 0);
+  const amodp = Number(BigInt(a) % BigInt(p));
+  if (amodp === 0) {
+    return true;
+  }
+  const value = modPow(amodp, (p - 1) / 2, p);
+  console.assert(value === 1 || value === p - 1);
   return value === 1;
 }
 
@@ -159,10 +163,13 @@ function isSmoothOverProduct(a, product, product1) {
     a /= g;
     g = BigInt(gcd(a, g));
   }
-  return a === 1n;
+  return a;
 }
 
 function getSmoothFactorization(a, base) {  
+  if (a === 0n) {
+    return [];//TODO: ?
+  }
   var value = BigInt(a);
   var result = new Array(base.length);
   for (var i = 0; i < base.length; i += 1) {
@@ -178,16 +185,14 @@ function getSmoothFactorization(a, base) {
 }
 
 // (X**2 - Y) % N === 0, where Y is a smooth number
-function CongruenceOfsquareOfXminusYmoduloN(X, Y, N, primes, factorization) {
+function CongruenceOfsquareOfXminusYmoduloN(X, Y, N) {
   this.X = X;
   this.Y = Y;
   this.N = N;
-  this.primes = primes;
-  this.factorization = factorization;
 }
 CongruenceOfsquareOfXminusYmoduloN.prototype.toString = function () {
-  const X = this.X, Y = this.Y, N = this.N, primes = this.primes, factorization = this.factorization;
-  return 'X**2 ≡ Y (mod N), Y = '.replaceAll('X', X).replaceAll('Y', Y).replaceAll('N', N) + factorization.map((e, i) => e === 0 ? '' : 'p**e'.replaceAll('p', primes[i]).replaceAll('e', e)).filter(s => s !== '').join(' * ');
+  const X = this.X, Y = this.Y, N = this.N;
+  return 'X**2 ≡ Y (mod N)'.replaceAll('X', X).replaceAll('Y', Y).replaceAll('N', N);
 };
 
 function getCongruencesUsingContinuedFraction(primes, n) {
@@ -208,11 +213,11 @@ function getCongruencesUsingContinuedFraction(primes, n) {
     }
     //console.log(X, Y);
     if (Y === 0n) {
-      return [new CongruenceOfsquareOfXminusYmoduloN(X, Y, n, primes, new Array(primes.length).fill(0))];//TODO: ???
+      return [new CongruenceOfsquareOfXminusYmoduloN(X, Y, n)];//TODO: ???
     }
-    if (isSmoothOverProduct(Y, primesProduct, product1)) {
-      const factorization = getSmoothFactorization(Y, primes);
-      congruences.push(new CongruenceOfsquareOfXminusYmoduloN(X, Y, n, primes, factorization));
+    const s = isSmoothOverProduct(Y, primesProduct, product1);
+    if (s === 1n) {
+      congruences.push(new CongruenceOfsquareOfXminusYmoduloN(X, Y, n));
     }
   }
   return congruences;
@@ -321,7 +326,7 @@ function ContinuedFractionFactorization(N) {
     // см. "Теоретико-числовые методы в криптографии" (О.Н. Герман, Ю.В. Нестеренко), страница 202
     const primeBase = primes(B).filter(p => isQuadraticResidueModuloPrime(kN, p));
     const congruences = getCongruencesUsingContinuedFraction(primeBase, kN); // congruences X_k^2 = Y_k mod N, where Y_k is smooth over the prime base
-    const solutions = solve(congruences.map(x => x.factorization)); // find products of Y_k = Y, so that Y^2 is a perfect square
+    const solutions = solve(congruences.map(c => getSmoothFactorization(c.Y, primeBase))); // find products of Y_k = Y, so that Y^2 is a perfect square
     for (const solution of solutions) {
       const X = product(solution.map(i => BigInt(congruences[i].X)));
       const Y = product(solution.map(i => BigInt(congruences[i].Y))); // = sqrt(X**2 % N)
@@ -344,7 +349,8 @@ ContinuedFractionFactorization.testables = {
   getSmoothFactorization: getSmoothFactorization,
   CongruenceOfsquareOfXminusYmoduloN: CongruenceOfsquareOfXminusYmoduloN,
   solve: solve,
-  product: product
+  product: product,
+  isQuadraticResidueModuloPrime: isQuadraticResidueModuloPrime
 };
 
 export default ContinuedFractionFactorization;
