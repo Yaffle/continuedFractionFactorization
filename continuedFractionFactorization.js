@@ -223,20 +223,33 @@ function getCongruencesUsingContinuedFraction(primes, n) {
   return congruences;
 }
 
-function BitSet(count) {
-  this.data = new Array(Math.ceil(count / 32)).fill(0);
+function BitSet(size) {
+  this.data = new Array(Math.ceil(size / 32)).fill(0);
+  this.size = size;
 }
 BitSet.prototype.has = function (index) {
+  if (index >= this.size) {
+    throw new RangeError();
+  }
   return (this.data[Math.floor(index / 32)] & (1 << (index % 32))) !== 0;
 };
 BitSet.prototype.add = function (index) {
+  if (index >= this.size) {
+    throw new RangeError();
+  }
   this.data[Math.floor(index / 32)] |= (1 << (index % 32));
 };
 BitSet.prototype.xor = function (other) {
-  const n = Math.min(this.data.length, other.data.length);
+  const n = other.data.length;
+  if (n !== this.data.length) {
+    throw new RangeError();
+  }
   for (let i = 0; i < n; i += 1) {
     this.data[i] ^= other.data[i];
   }
+};
+BitSet.prototype.toString = function () {
+  return this.data.map(x => (x >>> 0).toString(2).padStart(32, '0').split('').reverse().join('')).join('');
 };
 
 // factorizations - array of arrays of powers
