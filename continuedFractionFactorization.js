@@ -195,7 +195,7 @@ CongruenceOfsquareOfXminusYmoduloN.prototype.toString = function () {
 
 function* congruencesUsingContinuedFraction(primes, n) {
   const primesProduct = product(primes);
-  const product1 = BigInt(primes.reduce((p, prime) => p * prime <= Number.MAX_SAFE_INTEGER ? p * prime : p, 1));
+  const product1 = BigInt(primes.reduce((p, prime) => p * Number(prime) <= Number.MAX_SAFE_INTEGER ? p * Number(prime) : p, 1));
   n = BigInt(n);
   for (const A_k of sqrtConvergentNumeratorsModN(n)) {
     const X = A_k % n; // A_k mod n
