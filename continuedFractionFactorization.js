@@ -193,7 +193,29 @@ CongruenceOfsquareOfXminusYmoduloN.prototype.toString = function () {
   return 'X**2 ≡ Y (mod N)'.replaceAll('X', X).replaceAll('Y', Y).replaceAll('N', N);
 };
 
+function modInverse(a, m) {
+  a = BigInt(a);
+  m = BigInt(m);
+  if (a <= 0n || a >= m || m <= 0n) {
+    throw new RangeError();
+  }
+  // We use the extended Euclidean algorithm:
+  let b = m;
+  let [A, C] = [1n, 0n];
+  while (b > 0n) {
+    const q = a / b; // floor(a / b)
+    [a, b] = [b, a - q * b];
+    [A, C] = [C, A - q * C];
+  }
+  if (a !== 1n) {
+    return 0n;
+  }
+  return A < 0n ? A + m : A;
+}
+
 function* congruencesUsingContinuedFraction(primes, n) {
+  const USE_LP_STRATEGY = true; // large primes
+  let largePrimes = USE_LP_STRATEGY ? new Map() : null; // prime -> congruence which needs this prime in base additionaly
   const primesProduct = product(primes);
   const product1 = BigInt(primes.reduce((p, prime) => p * Number(prime) <= Number.MAX_SAFE_INTEGER ? p * Number(prime) : p, 1));
   n = BigInt(n);
@@ -210,6 +232,35 @@ function* congruencesUsingContinuedFraction(primes, n) {
       const s = isSmoothOverProduct(Y, primesProduct, product1);
       if (s === 1n) {
         yield new CongruenceOfsquareOfXminusYmoduloN(X, Y, n);
+      } else {
+        if (USE_LP_STRATEGY) {
+          // https://ru.wikipedia.org/wiki/Алгоритм_Диксона#Стратегия_LP
+          const B = primes.length === 0 ? 1 : Number(primes[primes.length - 1]);
+          if (s < Math.min(B**2, 2**53)) {
+            // s is prime
+            //if (!isPrime(s)) {
+            //  throw new RangeError();
+            //}
+            const largePrimeCongruence = largePrimes.get(Number(s));
+            if (largePrimeCongruence == undefined) {
+              largePrimes.set(Number(s), new CongruenceOfsquareOfXminusYmoduloN(X, Y, n));
+            } else {
+              const sInverse = modInverse(s, n);
+              if (sInverse === 0n) {
+                yield new CongruenceOfsquareOfXminusYmoduloN(s, 0n, n);
+                //return;//TODO: ???
+              } else {
+                const X1 = (sInverse * largePrimeCongruence.X * X) % n;
+                let Y1 = (X1 * X1) % n;
+                if (Y1 > n - Y1) {
+                  Y1 = n - Y1;
+                }
+                yield new CongruenceOfsquareOfXminusYmoduloN(X1, Y1, n);
+                console.assert(isSmoothOverProduct(Y1, primesProduct, product1) === 1n);
+              }
+            }
+          }
+        }
       }
     }
   }
