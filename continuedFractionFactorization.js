@@ -171,15 +171,13 @@ function getSmoothFactorization(a, base) {
     return [];//TODO: ?
   }
   var value = BigInt(a);
-  var result = new Array(base.length);
+  var result = new Array(base.length).fill(0);
   for (var i = 0; i < base.length; i += 1) {
-    var p = base[i];
-    var e = 0;
-    while (value % BigInt(p) === 0n) {
-      value /= BigInt(p);
-      e += 1;
+    var p = BigInt(base[i]);
+    while (value % p === 0n) {
+      value /= p;
+      result[i] += 1;
     }
-    result[i] = e;
   }
   return value === 1n ? result : null;
 }
