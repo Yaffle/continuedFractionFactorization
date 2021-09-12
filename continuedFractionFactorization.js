@@ -306,6 +306,9 @@ function* solve(matrixSize) {
   while (true) {
     let row = new BitSet(matrixSize + matrixSize);
     const [rawRow, associatedValue] = yield nextSolution;
+    if (rawRow.length !== matrixSize) {
+      throw new RangeError();
+    }
     for (let j = 0; j < matrixSize; j += 1) {
       if (rawRow[j] % 2 !== 0) {
         row.add(j);
@@ -381,7 +384,7 @@ function ContinuedFractionFactorization(N) {
     const solutions = solve(primeBase.length); // find products of Y_k = Y, so that Y is a perfect square
     solutions.next();
     for (const c of congruences) {
-      const solution = solutions.next([getSmoothFactorization(c.Y, primeBase), c]).value;
+      const solution = c.Y === 0n ? [c] : solutions.next([getSmoothFactorization(c.Y, primeBase), c]).value;
       if (solution != null) {
         const X = product(solution.map(c => BigInt(c.X)));
         const Y = product(solution.map(c => BigInt(c.Y))); // = sqrt(X**2 % N)
