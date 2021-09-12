@@ -193,17 +193,11 @@ CongruenceOfsquareOfXminusYmoduloN.prototype.toString = function () {
   return 'X**2 ≡ Y (mod N)'.replaceAll('X', X).replaceAll('Y', Y).replaceAll('N', N);
 };
 
-function getCongruencesUsingContinuedFraction(primes, n) {
+function* congruencesUsingContinuedFraction(primes, n) {
   const primesProduct = product(primes);
   const product1 = BigInt(primes.reduce((p, prime) => p * prime <= Number.MAX_SAFE_INTEGER ? p * prime : p, 1));
   n = BigInt(n);
-  const g = sqrtConvergentNumeratorsModN(n);
-  let congruences = [];
-  while (congruences.length < primes.length + 1) {
-    const A_k = g.next().value;
-    if (A_k == null) {
-      return congruences;//?
-    }
+  for (const A_k of sqrtConvergentNumeratorsModN(n)) {
     const X = A_k % n; // A_k mod n
     let Y = (X * X) % n; // (A_k)^2 mod n
     if (Y > n - Y) {//TODO: ???
@@ -211,14 +205,14 @@ function getCongruencesUsingContinuedFraction(primes, n) {
     }
     //console.log(X, Y);
     if (Y === 0n) {
-      return [new CongruenceOfsquareOfXminusYmoduloN(X, Y, n)];//TODO: ???
-    }
-    const s = isSmoothOverProduct(Y, primesProduct, product1);
-    if (s === 1n) {
-      congruences.push(new CongruenceOfsquareOfXminusYmoduloN(X, Y, n));
+      yield new CongruenceOfsquareOfXminusYmoduloN(X, Y, n);
+    } else {
+      const s = isSmoothOverProduct(Y, primesProduct, product1);
+      if (s === 1n) {
+        yield new CongruenceOfsquareOfXminusYmoduloN(X, Y, n);
+      }
     }
   }
-  return congruences;
 }
 
 function BitSet(size) {
@@ -336,7 +330,17 @@ function ContinuedFractionFactorization(N) {
     // x^2 = N (mod p), so N is a quadratic residue modulo N
     // см. "Теоретико-числовые методы в криптографии" (О.Н. Герман, Ю.В. Нестеренко), страница 202
     const primeBase = primes(B).filter(p => isQuadraticResidueModuloPrime(kN, p));
-    const congruences = getCongruencesUsingContinuedFraction(primeBase, kN); // congruences X_k^2 = Y_k mod N, where Y_k is smooth over the prime base
+    const g = congruencesUsingContinuedFraction(primeBase, kN); // congruences X_k^2 = Y_k mod N, where Y_k is smooth over the prime base
+    let congruences = [];
+    let done = false;
+    while (congruences.length < primeBase.length + 1 && !done) {
+      const c = g.next().value;
+      if (c == null) {
+        done = true;
+      } else {
+        congruences.push(c);
+      }
+    }
     const solutions = solve(congruences.map(c => getSmoothFactorization(c.Y, primeBase))); // find products of Y_k = Y, so that Y^2 is a perfect square
     for (const solution of solutions) {
       const X = product(solution.map(i => BigInt(congruences[i].X)));
