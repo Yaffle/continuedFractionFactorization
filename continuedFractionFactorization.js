@@ -244,60 +244,56 @@ BitSet.prototype.toString = function () {
   return this.data.map(x => (x >>> 0).toString(2).padStart(32, '0').split('').reverse().join('')).join('');
 };
 
-// factorizations - array of arrays of powers
-// returns combinations of factorizations which result in zero vector by modulo 2
-function solve(factorizations) {
-  const primeBaseSize = factorizations.length === 0 ? 0 : factorizations[0].length;
-  // 1. build the augmented matrix
-  // 2. row reduce
-  var M = new Array(factorizations.length);
-  for (var i = 0; i < M.length; i++) {
-    const row = new BitSet(primeBaseSize + M.length);
-    const f = factorizations[i];
-    for (var j = 0; j < primeBaseSize; j += 1) {
-      if (f[j] % 2 !== 0) {
+// pass factorizations with associated values (arrays of powers) to the next call
+// returns linear combinations of vectors which result in zero vector by modulo 2
+function* solve(matrixSize) {
+  // We build the augmented matrix in row-echelon form with permuted rows, which can grow up to matrixSize rows:
+  const M = new Array(matrixSize).fill(null); // We will fill the matrix so pivot elements will be placed on the diagonal
+  const associatedValues = new Array(matrixSize).fill(-1);
+  let filledRows = 0;
+  let nextSolution = null;
+  while (true) {
+    let row = new BitSet(matrixSize + matrixSize);
+    const [rawRow, associatedValue] = yield nextSolution;
+    for (let j = 0; j < matrixSize; j += 1) {
+      if (rawRow[j] % 2 !== 0) {
         row.add(j);
       }
     }
-    row.add(primeBaseSize + i);
-    M[i] = row;
-  }
-  //console.log(M.map(x => x.toString()).join('\n'))
-  var pivotRow = 0;
-  for (var pivotColumn = 0; pivotColumn < primeBaseSize; pivotColumn += 1) {
-    var row = pivotRow;
-    while (row < M.length && !M[row].has(pivotColumn)) {
-      row += 1;
-    }
-    if (row < M.length) {
-      if (row !== pivotRow) {
-        // swap rows:
-        const tmp1 = M[row];
-        M[row] = M[pivotRow];
-        M[pivotRow] = tmp1;
-      }
-      // row-reduction:
-      for (var i = pivotRow + 1; i < M.length; i++) {
-        if (M[i].has(pivotColumn)) {
-          M[i].xor(M[pivotRow]);
+    // add row to the matrix maintaining it to be in row-echelon form:
+    for (let pivotColumn = 0; pivotColumn < matrixSize && row != null; pivotColumn += 1) {
+      if (row.has(pivotColumn)) {
+        const pivotRow = M[pivotColumn];
+        if (pivotRow != null) {
+          // row-reduction:
+          row.xor(pivotRow);
+        } else {
+          const i = filledRows;
+          console.assert(i < matrixSize);
+          row.add(matrixSize + i);
+          associatedValues[i] = associatedValue;
+          M[pivotColumn] = row;
+          filledRows += 1;
+          row = null;
         }
       }
-      pivotRow += 1;
     }
-  }
-  var solutions = [];
-  while (pivotRow < M.length) {
-    var row = M[pivotRow];
-    var solution = [];
-    for (var i = 0; i < M.length; i += 1) {
-      if (row.has(primeBaseSize + i)) {
-        solution.push(i);
+    if (row != null) {
+      // row has a solution
+      // extract solution from the augmented part of the matrix:
+      const solution = [];
+      for (let i = 0; i < M.length; i += 1) {
+        if (row.has(matrixSize + i)) {
+          solution.push(associatedValues[i]);
+        }
       }
+      solution.push(associatedValue);
+      nextSolution = solution;
+    } else {
+      nextSolution = null;
     }
-    solutions.push(solution);
-    pivotRow += 1;
   }
-  return solutions;
+  //console.log(M.map(x => x.toString()).join('\n'))
 }
 
 function primes(MAX) {
@@ -329,28 +325,22 @@ function ContinuedFractionFactorization(N) {
     // after multiplication by Q_k^-2 we have (Q_k^-1*P_k)^2 = N (mod p),
     // x^2 = N (mod p), so N is a quadratic residue modulo N
     // см. "Теоретико-числовые методы в криптографии" (О.Н. Герман, Ю.В. Нестеренко), страница 202
-    const primeBase = primes(B).filter(p => isQuadraticResidueModuloPrime(kN, p));
-    const g = congruencesUsingContinuedFraction(primeBase, kN); // congruences X_k^2 = Y_k mod N, where Y_k is smooth over the prime base
-    let congruences = [];
-    let done = false;
-    while (congruences.length < primeBase.length + 1 && !done) {
-      const c = g.next().value;
-      if (c == null) {
-        done = true;
-      } else {
-        congruences.push(c);
-      }
-    }
-    const solutions = solve(congruences.map(c => getSmoothFactorization(c.Y, primeBase))); // find products of Y_k = Y, so that Y^2 is a perfect square
-    for (const solution of solutions) {
-      const X = product(solution.map(i => BigInt(congruences[i].X)));
-      const Y = product(solution.map(i => BigInt(congruences[i].Y))); // = sqrt(X**2 % N)
-      const x = X;
-      const y = BigInt(sqrt(Y));
-      console.assert(y**2n === BigInt(Y));
-      const g = BigInt(gcd(x + y, N));
-      if (g !== 1n && g !== N) {
-        return g;
+    const primeBase = primes(B).filter(p => isQuadraticResidueModuloPrime(kN, p)).map(p => BigInt(p));
+    const congruences = congruencesUsingContinuedFraction(primeBase, kN); // congruences X_k^2 = Y_k mod N, where Y_k is smooth over the prime base
+    const solutions = solve(primeBase.length); // find products of Y_k = Y, so that Y is a perfect square
+    solutions.next();
+    for (const c of congruences) {
+      const solution = solutions.next([getSmoothFactorization(c.Y, primeBase), c]).value;
+      if (solution != null) {
+        const X = product(solution.map(c => BigInt(c.X)));
+        const Y = product(solution.map(c => BigInt(c.Y))); // = sqrt(X**2 % N)
+        const x = X;
+        const y = BigInt(sqrt(Y));
+        console.assert(y**2n === BigInt(Y));
+        const g = BigInt(gcd(x + y, N));
+        if (g !== 1n && g !== N) {
+          return g;
+        }
       }
     }
   }
