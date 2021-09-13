@@ -148,6 +148,7 @@ function product(array) {
 
 const T1 = (1n << 64n);
 function isSmoothOverProduct(a, product, product1) {
+  a = a < 0n ? -a : a;
   if (a >= T1) {
     var g1 = BigInt(gcd(a, product1));
     if (g1 > 1n) {
@@ -168,18 +169,19 @@ function isSmoothOverProduct(a, product, product1) {
 
 function getSmoothFactorization(a, base) {  
   if (a === 0n) {
-    return [];//TODO: ?
+    throw new RangeError();
   }
   var value = BigInt(a);
-  var result = new Array(base.length).fill(0);
+  var result = new Array(1 + base.length).fill(0);
+  result[0] = value < 0n ? 1 : 0;
   for (var i = 0; i < base.length; i += 1) {
     var p = BigInt(base[i]);
     while (value % p === 0n) {
       value /= p;
-      result[i] += 1;
+      result[1 + i] += 1;
     }
   }
-  return value === 1n ? result : null;
+  return value === 1n || value === -1n ? result : null;
 }
 
 // (X**2 - Y) % N === 0, where Y is a smooth number
@@ -219,12 +221,10 @@ function* congruencesUsingContinuedFraction(primes, n) {
   const primesProduct = product(primes);
   const product1 = BigInt(primes.reduce((p, prime) => p * Number(prime) <= Number.MAX_SAFE_INTEGER ? p * Number(prime) : p, 1));
   n = BigInt(n);
+  const d = ((n - n % 2n) / 2n);
   for (const A_k of sqrtConvergentNumeratorsModN(n)) {
     const X = A_k % n; // A_k mod n
-    let Y = (X * X) % n; // (A_k)^2 mod n
-    if (Y > n - Y) {//TODO: ???
-      Y = n - Y;
-    }
+    const Y = (X * X + d) % n - d; // (A_k)^2 mod n
     //console.log(X, Y);
     if (Y === 0n) {
       yield new CongruenceOfsquareOfXminusYmoduloN(X, Y, n);
@@ -251,10 +251,7 @@ function* congruencesUsingContinuedFraction(primes, n) {
                 //return;//TODO: ???
               } else {
                 const X1 = (sInverse * largePrimeCongruence.X * X) % n;
-                let Y1 = (X1 * X1) % n;
-                if (Y1 > n - Y1) {
-                  Y1 = n - Y1;
-                }
+                const Y1 = (X1 * X1 + d) % n - d;
                 yield new CongruenceOfsquareOfXminusYmoduloN(X1, Y1, n);
                 console.assert(isSmoothOverProduct(Y1, primesProduct, product1) === 1n);
               }
@@ -381,7 +378,7 @@ function ContinuedFractionFactorization(N) {
     // см. "Теоретико-числовые методы в криптографии" (О.Н. Герман, Ю.В. Нестеренко), страница 202
     const primeBase = primes(B).filter(p => isQuadraticResidueModuloPrime(kN, p)).map(p => BigInt(p));
     const congruences = congruencesUsingContinuedFraction(primeBase, kN); // congruences X_k^2 = Y_k mod N, where Y_k is smooth over the prime base
-    const solutions = solve(primeBase.length); // find products of Y_k = Y, so that Y is a perfect square
+    const solutions = solve(1 + primeBase.length); // find products of Y_k = Y, so that Y is a perfect square
     solutions.next();
     for (const c of congruences) {
       const solution = c.Y === 0n ? [c] : solutions.next([getSmoothFactorization(c.Y, primeBase), c]).value;
