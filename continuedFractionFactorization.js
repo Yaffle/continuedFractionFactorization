@@ -248,12 +248,11 @@ function* congruencesUsingContinuedFraction(primes, n) {
               const sInverse = modInverse(s, n);
               if (sInverse === 0n) {
                 yield new CongruenceOfsquareOfXminusYmoduloN(s, 0n, n);
-                //return;//TODO: ???
               } else {
                 const X1 = (sInverse * largePrimeCongruence.X * X) % n;
                 const Y1 = (X1 * X1 + d) % n - d;
-                yield new CongruenceOfsquareOfXminusYmoduloN(X1, Y1, n);
                 console.assert(isSmoothOverProduct(Y1, primesProduct, product1) === 1n);
+                yield new CongruenceOfsquareOfXminusYmoduloN(X1, Y1, n);
               }
             }
           }
@@ -301,8 +300,8 @@ function* solve(matrixSize) {
   let filledRows = 0;
   let nextSolution = null;
   while (true) {
-    let row = new BitSet(matrixSize + matrixSize);
     const [rawRow, associatedValue] = yield nextSolution;
+    let row = new BitSet(matrixSize + matrixSize);
     if (rawRow.length !== matrixSize) {
       throw new RangeError();
     }
