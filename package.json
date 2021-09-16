@@ -1,6 +1,6 @@
 {
   "name": "continuedfractionfactorization",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "continued fraction factorization method for integers",
   "main": "continuedFractionFactorization.js",
   "scripts": {
