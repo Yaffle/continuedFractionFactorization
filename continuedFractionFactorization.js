@@ -11,15 +11,21 @@ function ngcd(a, b) {
   return a;
 }
 
-const MAX_SAFE_INTEGER = BigInt(Number.MAX_SAFE_INTEGER);
 function gcd(a, b) {
-  while (b > MAX_SAFE_INTEGER || a > MAX_SAFE_INTEGER && b > 0n) {
+  while (BigInt.asUintN(53, b) !== b) {
     const r = a % b;
     a = b;
     b = r;
   }
-  if (b > 0n) {
-    return BigInt(ngcd(Number(a), Number(b)));
+  if (b !== 0n) {
+    if (BigInt.asUintN(53, a) !== a) {
+      const r = a % b;
+      a = b;
+      b = r;
+    }
+    if (b !== 0n) {
+      return BigInt(ngcd(Number(a), Number(b)));
+    }
   }
   return a;
 }
@@ -135,23 +141,16 @@ function L(N) {  // exp(sqrt(log(n)*log(log(n))))
 }
 
 function product(array) {
-  //return array.reduce((p, a) => p * BigInt(a), 1n);
-  if (array.length === 0) {
-    return 1n;
-  }
-  if (array.length === 1) {
-    return BigInt(array[0]);
-  }
-  const m = Math.floor(array.length / 2);
-  return product(array.slice(0, m)) * product(array.slice(m));
+  const n = array.length;
+  const m = Math.floor(n / 2);
+  return n === 0 ? 1n : (n === 1 ? BigInt(array[0]) : product(array.slice(0, m)) * product(array.slice(m)));
 }
 
-const T1 = (1n << 64n);
 function isSmoothOverProduct(a, product, product1) {
   a = a < 0n ? -a : a;
-  if (a >= T1) {
-    var g1 = BigInt(gcd(a, product1));
-    if (g1 > 1n) {
+  if (BigInt.asUintN(64, a) !== a) {
+    var g1 = gcd(a, product1);
+    if (g1 !== 1n) {
       a /= g1;
     }
   }
@@ -159,10 +158,10 @@ function isSmoothOverProduct(a, product, product1) {
     throw new RangeError();
   }
   // quite test from https://trizenx.blogspot.com/2018/10/continued-fraction-factorization-method.html#:~:text=is_smooth_over_prod
-  let g = BigInt(gcd(a, product % a));
-  while (g > 1n) {
+  let g = gcd(a, product % a);
+  while (g !== 1n) {
     a /= g;
-    g = BigInt(gcd(a, g));
+    g = gcd(a, g);
   }
   return a;
 }
@@ -236,7 +235,7 @@ function* congruencesUsingContinuedFraction(primes, n) {
         if (USE_LP_STRATEGY) {
           // https://ru.wikipedia.org/wiki/Алгоритм_Диксона#Стратегия_LP
           const B = primes.length === 0 ? 1 : Number(primes[primes.length - 1]);
-          if (s < Math.min(B**2, 2**53)) {
+          if (s <= Math.min(B**2, Number.MAX_SAFE_INTEGER)) {
             // s is prime
             //if (!isPrime(s)) {
             //  throw new RangeError();
@@ -382,12 +381,12 @@ function ContinuedFractionFactorization(N) {
     for (const c of congruences) {
       const solution = c.Y === 0n ? [c] : solutions.next([getSmoothFactorization(c.Y, primeBase), c]).value;
       if (solution != null) {
-        const X = product(solution.map(c => BigInt(c.X)));
-        const Y = product(solution.map(c => BigInt(c.Y))); // = sqrt(X**2 % N)
+        const X = product(solution.map(c => c.X));
+        const Y = product(solution.map(c => c.Y)); // = sqrt(X**2 % N)
         const x = X;
         const y = BigInt(sqrt(Y));
         console.assert(y**2n === BigInt(Y));
-        const g = BigInt(gcd(x + y, N));
+        const g = gcd(x + y, N);
         if (g !== 1n && g !== N) {
           return g;
         }
