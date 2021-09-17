@@ -307,57 +307,71 @@ BitSet.prototype.toString = function () {
 
 // pass factorizations with associated values (arrays of powers) to the next call
 // returns linear combinations of vectors which result in zero vector by modulo 2
-function* solve(matrixSize) {
+function solve(matrixSize) {
   // We build the augmented matrix in row-echelon form with permuted rows, which can grow up to matrixSize rows:
   const M = new Array(matrixSize).fill(null); // We will fill the matrix so pivot elements will be placed on the diagonal
   const associatedValues = new Array(matrixSize).fill(-1);
   let filledRows = 0;
   let nextSolution = null;
-  while (true) {
-    const [rawRow, associatedValue] = yield nextSolution;
-    let row = new BitSet(matrixSize + matrixSize);
-    if (rawRow.length !== matrixSize) {
-      throw new RangeError();
-    }
-    for (let j = 0; j < matrixSize; j += 1) {
-      if (rawRow[j] % 2 !== 0) {
-        row.add(j);
-      }
-    }
-    // add row to the matrix maintaining it to be in row-echelon form:
-    for (let pivotColumn = 0; pivotColumn < matrixSize && row != null; pivotColumn += 1) {
-      if (row.has(pivotColumn)) {
-        const pivotRow = M[pivotColumn];
-        if (pivotRow != null) {
-          // row-reduction:
-          row.xor(pivotRow);
+  let state = 1;
+  const iterator = {
+    next: function (tmp) {
+      while (true) {
+        if (state === 1) {
+          state = 0;
+          return {value: nextSolution, done: false};
+        }
+        state = 1;
+        const [rawRow, associatedValue] = tmp;
+        let row = new BitSet(matrixSize + matrixSize);
+        if (rawRow.length !== matrixSize) {
+          throw new RangeError();
+        }
+        for (let j = 0; j < matrixSize; j += 1) {
+          if (rawRow[j] % 2 !== 0) {
+            row.add(j);
+          }
+        }
+        // add row to the matrix maintaining it to be in row-echelon form:
+        for (let pivotColumn = 0; pivotColumn < matrixSize && row != null; pivotColumn += 1) {
+          if (row.has(pivotColumn)) {
+            const pivotRow = M[pivotColumn];
+            if (pivotRow != null) {
+              // row-reduction:
+              row.xor(pivotRow);
+            } else {
+              const i = filledRows;
+              console.assert(i < matrixSize);
+              row.add(matrixSize + i);
+              associatedValues[i] = associatedValue;
+              M[pivotColumn] = row;
+              filledRows += 1;
+              row = null;
+            }
+          }
+        }
+        if (row != null) {
+          // row has a solution
+          // extract solution from the augmented part of the matrix:
+          const solution = [];
+          for (let i = 0; i < M.length; i += 1) {
+            if (row.has(matrixSize + i)) {
+              solution.push(associatedValues[i]);
+            }
+          }
+          solution.push(associatedValue);
+          nextSolution = solution;
         } else {
-          const i = filledRows;
-          console.assert(i < matrixSize);
-          row.add(matrixSize + i);
-          associatedValues[i] = associatedValue;
-          M[pivotColumn] = row;
-          filledRows += 1;
-          row = null;
+          nextSolution = null;
         }
       }
+      //console.log(M.map(x => x.toString()).join('\n'))
     }
-    if (row != null) {
-      // row has a solution
-      // extract solution from the augmented part of the matrix:
-      const solution = [];
-      for (let i = 0; i < M.length; i += 1) {
-        if (row.has(matrixSize + i)) {
-          solution.push(associatedValues[i]);
-        }
-      }
-      solution.push(associatedValue);
-      nextSolution = solution;
-    } else {
-      nextSolution = null;
-    }
-  }
-  //console.log(M.map(x => x.toString()).join('\n'))
+  };
+  iterator[globalThis.Symbol.iterator] = function () {
+    return this;
+  };
+  return iterator;
 }
 
 function primes(MAX) {
