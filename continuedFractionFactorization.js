@@ -114,7 +114,7 @@ function modPow(a, n, m) {
       result = (result * a) % m;
     }
     n = Math.floor(n / 2);
-    a = (a**2) % m;
+    a = (a * a) % m;
   }
   return result;
 }
@@ -246,7 +246,7 @@ function congruencesUsingContinuedFraction(primes, n) {
             if (USE_LP_STRATEGY) {
               // https://ru.wikipedia.org/wiki/Алгоритм_Диксона#Стратегия_LP
               const B = primes.length === 0 ? 1 : Number(primes[primes.length - 1]);
-              if (s <= Math.min(B**2, Number.MAX_SAFE_INTEGER)) {
+              if (s <= Math.min(B * B, Number.MAX_SAFE_INTEGER)) {
                 // s is prime
                 //if (!isPrime(s)) {
                 //  throw new RangeError();
