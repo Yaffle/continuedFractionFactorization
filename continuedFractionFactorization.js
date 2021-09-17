@@ -218,7 +218,8 @@ function* congruencesUsingContinuedFraction(primes, n) {
   const USE_LP_STRATEGY = true; // large primes
   let largePrimes = USE_LP_STRATEGY ? new Map() : null; // prime -> congruence which needs this prime in base additionaly
   const primesProduct = product(primes);
-  const product1 = BigInt(primes.reduce((p, prime) => p * Number(prime) <= Number.MAX_SAFE_INTEGER ? p * Number(prime) : p, 1));
+  //const product1 = BigInt(primes.reduce((p, prime) => p * Number(prime) <= Number.MAX_SAFE_INTEGER ? p * Number(prime) : p, 1));
+  const product1 = product(primes.slice(0, 11));
   n = BigInt(n);
   const d = ((n - n % 2n) / 2n);
   for (const A_k of sqrtConvergentNumeratorsModN(n)) {
