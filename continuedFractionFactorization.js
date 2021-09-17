@@ -430,7 +430,7 @@ function ContinuedFractionFactorization(N) {
 }
 
 ContinuedFractionFactorization.testables = {
-  continuedFractionForSqrt,
+  continuedFractionForSqrt: continuedFractionForSqrt,
   primes: primes,
   L: L,
   getSmoothFactorization: getSmoothFactorization,
