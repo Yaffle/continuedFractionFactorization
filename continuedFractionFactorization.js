@@ -231,7 +231,6 @@ function congruencesUsingContinuedFraction(primes, n) {
       while ((a = fraction.next().value) != undefined) { // TODO: why do we stop after the first cycle ?
         // https://en.wikipedia.org/wiki/Continued_fraction#:~:text=The%20successive%20convergents%20are%20given%20by%20the%20formula
         [hprev, h] = [h, BigInt(a) * h + hprev];
-    //TODO: test size of BigInt(a) * h
         // optimization from the https://trizenx.blogspot.com/2018/10/continued-fraction-factorization-method.html :
         h = h % n;
         const X = h % n; // A_k mod n
