@@ -49,7 +49,7 @@ function sqrt(x) {
 
 // See https://trizenx.blogspot.com/2018/10/continued-fraction-factorization-method.html
 
-function* continuedFractionForSqrt(n) {
+function continuedFractionForSqrt(n) {
   function floorDiv(a, b) {
     return typeof a === "bigint" && typeof b === "bigint" ? a / b : Math.floor(a / b);
   }
@@ -60,30 +60,44 @@ function* continuedFractionForSqrt(n) {
   const root = BigInt(sqrt(n));
   const remainder = n - root * root;
   const i = Number(root) * 2 <= Number.MAX_SAFE_INTEGER ? Number(root) : root;
-  yield i;
-  if (remainder !== 0n) {
-    // sqrt(n) = floor(sqrt(n)) + 1 / x
-    // expand continued fraction:
-    // x_k = floor(x_k) + 1 / x_(k+1)
-    // each x_k will have form x_k = (sqrt(n) + y_k) / z_k
-    const one = i / i;
-    let zprev = one;
-    let z = typeof i === "number" ? Number(remainder) : remainder;
-    let y = i;
-    do {
-      const q = floorDiv((i + y), z);
-      const ynew = q * z - y;
-      const znew = zprev + q * (y - ynew);
-      y = ynew;
-      zprev = z;
-      z = znew;
-      //console.assert(one <= q && q <= i + i);
-      //console.assert(one <= y && y <= i);
-      //console.assert(one <= z && z <= i + i);
-      yield q;
-    } while (zprev !== one); //TODO: why is it cycling here - ?
-    console.assert(y === i && BigInt(z) === remainder && zprev === one);
-  }
+  let state = 0;
+  // sqrt(n) = floor(sqrt(n)) + 1 / x
+  // expand continued fraction:
+  // x_k = floor(x_k) + 1 / x_(k+1)
+  // each x_k will have form x_k = (sqrt(n) + y_k) / z_k
+  const one = i / i;
+  let zprev = one;
+  let z = typeof i === "number" ? Number(remainder) : remainder;
+  let y = i;
+  const iterator = {
+    next: function () {
+      if (state === 0) {
+        state = 1;
+        return {value: i, done: false};
+      }
+      if (remainder !== 0n) {
+        while (state === 1 || zprev !== one) { //TODO: why is it cycling here - ?
+          state = 2;
+          const q = floorDiv((i + y), z);
+          const ynew = q * z - y;
+          const znew = zprev + q * (y - ynew);
+          y = ynew;
+          zprev = z;
+          z = znew;
+          //console.assert(one <= q && q <= i + i);
+          //console.assert(one <= y && y <= i);
+          //console.assert(one <= z && z <= i + i);
+          return {value: q, done: false}
+        }
+        //console.assert(y === i && BigInt(z) === remainder && zprev === one);
+      }
+      return {value: undefined, done: true}
+    }
+  };
+  iterator[globalThis.Symbol.iterator] = function () {
+    return this;
+  };
+  return iterator;
 }
 
 function* sqrtConvergentNumeratorsModN(N) {
