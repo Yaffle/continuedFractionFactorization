@@ -215,7 +215,7 @@ function modInverse(a, m) {
   return A < 0n ? A + m : A;
 }
 
-function* congruencesUsingContinuedFraction(primes, n) {
+function congruencesUsingContinuedFraction(primes, n) {
   const USE_LP_STRATEGY = true; // large primes
   let largePrimes = USE_LP_STRATEGY ? new Map() : null; // prime -> congruence which needs this prime in base additionaly
   const primesProduct = product(primes);
@@ -223,51 +223,61 @@ function* congruencesUsingContinuedFraction(primes, n) {
   const product1 = product(primes.slice(0, 11));
   n = BigInt(n);
   const d = ((n - n % 2n) / 2n);
-  // https://en.wikipedia.org/wiki/Continued_fraction#:~:text=The%20successive%20convergents%20are%20given%20by%20the%20formula
-  let hprev = 0n;
-  let h = 1n;
-  for (const a of continuedFractionForSqrt(n)) { // TODO: why do we stop after the first cycle ?
-    [hprev, h] = [h, BigInt(a) * h + hprev];
-    // optimization from the https://trizenx.blogspot.com/2018/10/continued-fraction-factorization-method.html :
-    h = h % n;
-    const A_k = h;
-    const X = A_k % n; // A_k mod n
-    const Y = (X * X + d) % n - d; // (A_k)^2 mod n
-    //console.log(X, Y);
-    if (Y === 0n) {
-      yield new CongruenceOfsquareOfXminusYmoduloN(X, Y, n);
-    } else {
-      const s = isSmoothOverProduct(Y, primesProduct, product1);
-      if (s === 1n) {
-        yield new CongruenceOfsquareOfXminusYmoduloN(X, Y, n);
-      } else {
-        if (USE_LP_STRATEGY) {
-          // https://ru.wikipedia.org/wiki/Алгоритм_Диксона#Стратегия_LP
-          const B = primes.length === 0 ? 1 : Number(primes[primes.length - 1]);
-          if (s <= Math.min(B**2, Number.MAX_SAFE_INTEGER)) {
-            // s is prime
-            //if (!isPrime(s)) {
-            //  throw new RangeError();
-            //}
-            const largePrimeCongruence = largePrimes.get(Number(s));
-            if (largePrimeCongruence == undefined) {
-              largePrimes.set(Number(s), new CongruenceOfsquareOfXminusYmoduloN(X, Y, n));
-            } else {
-              const sInverse = modInverse(s, n);
-              if (sInverse === 0n) {
-                yield new CongruenceOfsquareOfXminusYmoduloN(s, 0n, n);
-              } else {
-                const X1 = (sInverse * largePrimeCongruence.X * X) % n;
-                const Y1 = (X1 * X1 + d) % n - d;
-                console.assert(isSmoothOverProduct(Y1, primesProduct, product1) === 1n);
-                yield new CongruenceOfsquareOfXminusYmoduloN(X1, Y1, n);
+  let [hprev, h] = [0n, 1n]; // previout and current convergent numerator modulo n
+  const fraction = continuedFractionForSqrt(n);
+  const iterator = {
+    next: function () {
+      let a = 0n;
+      while ((a = fraction.next().value) != undefined) { // TODO: why do we stop after the first cycle ?
+        // https://en.wikipedia.org/wiki/Continued_fraction#:~:text=The%20successive%20convergents%20are%20given%20by%20the%20formula
+        [hprev, h] = [h, BigInt(a) * h + hprev];
+    //TODO: test size of BigInt(a) * h
+        // optimization from the https://trizenx.blogspot.com/2018/10/continued-fraction-factorization-method.html :
+        h = h % n;
+        const X = h % n; // A_k mod n
+        const Y = (X * X + d) % n - d; // (A_k)^2 mod n
+        //console.log(X, Y);
+        if (Y === 0n) {
+          return {value: new CongruenceOfsquareOfXminusYmoduloN(X, Y, n), done: false};
+        } else {
+          const s = isSmoothOverProduct(Y, primesProduct, product1);
+          if (s === 1n) {
+            return {value: new CongruenceOfsquareOfXminusYmoduloN(X, Y, n), done: false};
+          } else {
+            if (USE_LP_STRATEGY) {
+              // https://ru.wikipedia.org/wiki/Алгоритм_Диксона#Стратегия_LP
+              const B = primes.length === 0 ? 1 : Number(primes[primes.length - 1]);
+              if (s <= Math.min(B**2, Number.MAX_SAFE_INTEGER)) {
+                // s is prime
+                //if (!isPrime(s)) {
+                //  throw new RangeError();
+                //}
+                const largePrimeCongruence = largePrimes.get(Number(s));
+                if (largePrimeCongruence == undefined) {
+                  largePrimes.set(Number(s), new CongruenceOfsquareOfXminusYmoduloN(X, Y, n));
+                } else {
+                  const sInverse = modInverse(s, n);
+                  if (sInverse === 0n) {
+                    return {value: new CongruenceOfsquareOfXminusYmoduloN(s, 0n, n), done: false};
+                  } else {
+                    const X1 = (sInverse * largePrimeCongruence.X * X) % n;
+                    const Y1 = (X1 * X1 + d) % n - d;
+                    console.assert(isSmoothOverProduct(Y1, primesProduct, product1) === 1n);
+                    return {value: new CongruenceOfsquareOfXminusYmoduloN(X1, Y1, n), done: false};
+                  }
+                }
               }
             }
           }
         }
       }
+      return {value: undefined, done: true};
     }
-  }
+  };
+  iterator[globalThis.Symbol.iterator] = function () {
+    return this;
+  };
+  return iterator;
 }
 
 function BitSet(size) {
