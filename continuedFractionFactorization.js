@@ -100,19 +100,6 @@ function continuedFractionForSqrt(n) {
   return iterator;
 }
 
-function* sqrtConvergentNumeratorsModN(N) {
-  // https://en.wikipedia.org/wiki/Continued_fraction#:~:text=The%20successive%20convergents%20are%20given%20by%20the%20formula
-  N = BigInt(N);
-  let hprev = 0n;
-  let h = 1n;
-  for (const a of continuedFractionForSqrt(N)) { // TODO: why do we stop after the first cycle ?
-    [hprev, h] = [h, BigInt(a) * h + hprev];
-    // optimization from the https://trizenx.blogspot.com/2018/10/continued-fraction-factorization-method.html :
-    h = h % N;
-    yield h;
-  }
-}
-
 function modPow(a, n, m) {
   a = Number(a);
   n = Number(n);
@@ -236,7 +223,14 @@ function* congruencesUsingContinuedFraction(primes, n) {
   const product1 = product(primes.slice(0, 11));
   n = BigInt(n);
   const d = ((n - n % 2n) / 2n);
-  for (const A_k of sqrtConvergentNumeratorsModN(n)) {
+  // https://en.wikipedia.org/wiki/Continued_fraction#:~:text=The%20successive%20convergents%20are%20given%20by%20the%20formula
+  let hprev = 0n;
+  let h = 1n;
+  for (const a of continuedFractionForSqrt(n)) { // TODO: why do we stop after the first cycle ?
+    [hprev, h] = [h, BigInt(a) * h + hprev];
+    // optimization from the https://trizenx.blogspot.com/2018/10/continued-fraction-factorization-method.html :
+    h = h % n;
+    const A_k = h;
     const X = A_k % n; // A_k mod n
     const Y = (X * X + d) % n - d; // (A_k)^2 mod n
     //console.log(X, Y);
@@ -407,7 +401,8 @@ function ContinuedFractionFactorization(N) {
     const congruences = congruencesUsingContinuedFraction(primeBase, kN); // congruences X_k^2 = Y_k mod N, where Y_k is smooth over the prime base
     const solutions = solve(1 + primeBase.length); // find products of Y_k = Y, so that Y is a perfect square
     solutions.next();
-    for (const c of congruences) {
+    let c = null;
+    while ((c = congruences.next().value) != undefined) {
       const solution = c.Y === 0n ? [c] : solutions.next([getSmoothFactorization(c.Y, primeBase), c]).value;
       if (solution != null) {
         const X = product(solution.map(c => c.X));
@@ -426,7 +421,6 @@ function ContinuedFractionFactorization(N) {
 
 ContinuedFractionFactorization.testables = {
   continuedFractionForSqrt,
-  sqrtConvergentNumeratorsModN,
   primes: primes,
   L: L,
   getSmoothFactorization: getSmoothFactorization,
