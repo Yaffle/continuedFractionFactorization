@@ -313,7 +313,7 @@ BitSet.prototype.toString = function () {
 function solve(matrixSize) {
   // We build the augmented matrix in row-echelon form with permuted rows, which can grow up to matrixSize rows:
   const M = new Array(matrixSize).fill(null); // We will fill the matrix so pivot elements will be placed on the diagonal
-  const associatedValues = new Array(matrixSize).fill(-1);
+  const associatedValues = new Array(matrixSize).fill(undefined);
   let filledRows = 0;
   let nextSolution = null;
   let state = 1;
