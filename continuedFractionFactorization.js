@@ -34,7 +34,7 @@ function log2(x) {
   return BigInt(x.toString(16).length * 4);
 }
 function sqrt(x) {
-  if (x < 2n**52n) {
+  if (x < BigInt((Number.MAX_SAFE_INTEGER + 1) / 2)) {
     return BigInt(Math.floor(Math.sqrt(Number(x) + 0.5)));
   }
   const q = (log2(x) / 4n);
@@ -87,11 +87,11 @@ function continuedFractionForSqrt(n) {
           //console.assert(one <= q && q <= i + i);
           //console.assert(one <= y && y <= i);
           //console.assert(one <= z && z <= i + i);
-          return {value: q, done: false}
+          return {value: q, done: false};
         }
         //console.assert(y === i && BigInt(z) === remainder && zprev === one);
       }
-      return {value: undefined, done: true}
+      return {value: undefined, done: true};
     }
   };
   iterator[globalThis.Symbol.iterator] = function () {
@@ -400,7 +400,7 @@ function ContinuedFractionFactorization(N) {
   for (let k = 1n;; k += 1n) {
     const kN = k * N;
     // https://trizenx.blogspot.com/2018/10/continued-fraction-factorization-method.html#:~:text=optimal%20value :
-    const B = Math.min(Math.floor(Math.sqrt(L(kN))), 2**25 - 1);
+    const B = Math.min(Math.floor(Math.sqrt(L(kN))), (1 << 25) - 1);
     // as we are check for smoothness the number P_k^2 - N * Q_k^2, where P_k/Q_k is a convergent,
     // if p is a factor of this number then P_k^2 - N * Q_k^2 = 0 (mod p),
     // after multiplication by Q_k^-2 we have (Q_k^-1*P_k)^2 = N (mod p),
@@ -418,7 +418,7 @@ function ContinuedFractionFactorization(N) {
         const Y = product(solution.map(c => c.Y)); // = sqrt(X**2 % N)
         const x = X;
         const y = BigInt(sqrt(Y));
-        console.assert(y**2n === BigInt(Y));
+        console.assert(y * y === BigInt(Y));
         const g = gcd(x + y, N);
         if (g !== 1n && g !== N) {
           return g;
