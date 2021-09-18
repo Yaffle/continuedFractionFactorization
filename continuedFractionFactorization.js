@@ -51,7 +51,7 @@ function sqrt(x) {
 
 function continuedFractionForSqrt(n) {
   function floorDiv(a, b) {
-    return typeof a === "bigint" && typeof b === "bigint" ? a / b : Math.floor(a / b);
+    return typeof a === "number" && typeof b === "number" ? Math.floor(a / b) : a / b;
   }
   n = BigInt(n);
   if (n < 0n) {
@@ -246,7 +246,7 @@ function congruencesUsingContinuedFraction(primes, n) {
             if (USE_LP_STRATEGY) {
               // https://ru.wikipedia.org/wiki/Алгоритм_Диксона#Стратегия_LP
               const B = primes.length === 0 ? 1 : Number(primes[primes.length - 1]);
-              if (s <= Math.min(B * B, Number.MAX_SAFE_INTEGER)) {
+              if (Number(s) <= Math.min(B * B, Number.MAX_SAFE_INTEGER)) {
                 // s is prime
                 //if (!isPrime(s)) {
                 //  throw new RangeError();
