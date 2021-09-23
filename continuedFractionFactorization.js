@@ -70,7 +70,7 @@ function continuedFractionForSqrt(n) {
   let z = typeof i === "number" ? Number(remainder) : remainder;
   let y = i;
   const iterator = {
-    next: function () {
+    next: function continuedFractionForSqrt() {
       if (state === 0) {
         state = 1;
         return {value: i, done: false};
@@ -226,7 +226,7 @@ function congruencesUsingContinuedFraction(primes, n) {
   let [hprev, h] = [0n, 1n]; // previout and current convergent numerator modulo n
   const fraction = continuedFractionForSqrt(n);
   const iterator = {
-    next: function () {
+    next: function congruencesUsingContinuedFraction() {
       let a = 0n;
       while ((a = fraction.next().value) != undefined) { // TODO: why do we stop after the first cycle ?
         // https://en.wikipedia.org/wiki/Continued_fraction#:~:text=The%20successive%20convergents%20are%20given%20by%20the%20formula
@@ -318,7 +318,7 @@ function solve(matrixSize) {
   let nextSolution = null;
   let state = 1;
   const iterator = {
-    next: function (tmp) {
+    next: function solve(tmp) {
       while (true) {
         if (state === 1) {
           state = 0;
