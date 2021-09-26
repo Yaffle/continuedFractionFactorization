@@ -305,7 +305,7 @@ BitSet.prototype.xor = function (other) {
   }
 };
 BitSet.prototype.toString = function () {
-  return this.data.map(x => (x >>> 0).toString(2).padStart(32, '0').split('').reverse().join('')).join('');
+  return this.data.map(x => (x >>> 0).toString(2).padStart(32, '0').split('').reverse().join('')).join('').slice(0, this.size);
 };
 
 // pass factorizations with associated values (arrays of powers) to the next call
@@ -314,7 +314,6 @@ function solve(matrixSize) {
   // We build the augmented matrix in row-echelon form with permuted rows, which can grow up to matrixSize rows:
   const M = new Array(matrixSize).fill(null); // We will fill the matrix so pivot elements will be placed on the diagonal
   const associatedValues = new Array(matrixSize).fill(undefined);
-  let filledRows = 0;
   let nextSolution = null;
   let state = 1;
   const iterator = {
@@ -343,12 +342,9 @@ function solve(matrixSize) {
               // row-reduction:
               row.xor(pivotRow);
             } else {
-              const i = filledRows;
-              console.assert(i < matrixSize);
-              row.add(matrixSize + i);
-              associatedValues[i] = associatedValue;
+              row.add(matrixSize + pivotColumn);
+              associatedValues[pivotColumn] = associatedValue;
               M[pivotColumn] = row;
-              filledRows += 1;
               row = null;
             }
           }
@@ -368,7 +364,7 @@ function solve(matrixSize) {
           nextSolution = null;
         }
       }
-      //console.log(M.map(x => x.toString()).join('\n'))
+      //console.log(M.filter(x => x != null).map(x => x.toString()).join('\n'))
     }
   };
   iterator[globalThis.Symbol.iterator] = function () {
