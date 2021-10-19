@@ -217,7 +217,7 @@ function modInverse(a, m) {
 
 function congruencesUsingContinuedFraction(primes, n) {
   const USE_LP_STRATEGY = true; // large primes
-  let largePrimes = USE_LP_STRATEGY ? new Map() : null; // prime -> congruence which needs this prime in base additionaly
+  let largePrimes = USE_LP_STRATEGY ? Object.create(null) : null; // prime -> congruence which needs this prime in base additionaly
   const primesProduct = product(primes);
   //const product1 = BigInt(primes.reduce((p, prime) => p * Number(prime) <= Number.MAX_SAFE_INTEGER ? p * Number(prime) : p, 1));
   const product1 = product(primes.slice(0, 11));
@@ -246,14 +246,15 @@ function congruencesUsingContinuedFraction(primes, n) {
             if (USE_LP_STRATEGY) {
               // https://ru.wikipedia.org/wiki/Алгоритм_Диксона#Стратегия_LP
               const B = primes.length === 0 ? 1 : Number(primes[primes.length - 1]);
-              if (Number(s) <= Math.min(B * B, Number.MAX_SAFE_INTEGER)) {
+              const lp = Number(s);
+              if (lp <= Math.min(B * B, Number.MAX_SAFE_INTEGER)) {
                 // s is prime
                 //if (!isPrime(s)) {
                 //  throw new RangeError();
                 //}
-                const largePrimeCongruence = largePrimes.get(Number(s));
+                const largePrimeCongruence = largePrimes[lp];
                 if (largePrimeCongruence == undefined) {
-                  largePrimes.set(Number(s), new CongruenceOfsquareOfXminusYmoduloN(X, Y, n));
+                  largePrimes[lp] = new CongruenceOfsquareOfXminusYmoduloN(X, Y, n);
                 } else {
                   const sInverse = modInverse(s, n);
                   if (sInverse === 0n) {
