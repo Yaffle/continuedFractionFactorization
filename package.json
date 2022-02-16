@@ -1,6 +1,6 @@
 {
   "name": "continuedfractionfactorization",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "continued fraction factorization method for integers",
   "main": "continuedFractionFactorization.js",
   "scripts": {
@@ -22,5 +22,6 @@
   "bugs": {
     "url": "https://github.com/Yaffle/continuedFractionFactorization/issues"
   },
-  "homepage": "https://github.com/Yaffle/continuedFractionFactorization#readme"
+  "homepage": "https://github.com/Yaffle/continuedFractionFactorization#readme",
+  "type": "module"
 }
