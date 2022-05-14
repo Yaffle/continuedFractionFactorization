@@ -33,13 +33,14 @@ function gcd(a, b) {
 function log2(x) {
   return BigInt(x.toString(16).length * 4);
 }
+
 function sqrt(x) {
   if (x < BigInt((Number.MAX_SAFE_INTEGER + 1) / 2)) {
     return BigInt(Math.floor(Math.sqrt(Number(x) + 0.5)));
   }
   const q = (log2(x) / 4n);
   const initialGuess = ((sqrt(x >> (q * 2n)) + 1n) << q);
-  var a = initialGuess, b = a+1n;
+  let a = initialGuess, b = a+1n;
   while(a<b) {
     b = a;
     a = (b + x/b)/2n;
@@ -100,44 +101,52 @@ function continuedFractionForSqrt(n) {
   return iterator;
 }
 
-function modPow(a, n, m) {
-  a = Number(a);
-  n = Number(n);
-  m = Number(m);
-  if (Math.abs(m) > Math.floor(Math.sqrt(Number.MAX_SAFE_INTEGER)) || n < 0 || a % m === 0) {
+function modPowSmall(base, exponent, modulus) {
+  base = Number(base);
+  exponent = Number(exponent);
+  modulus = Number(modulus);
+  if (Math.max(Math.pow(modulus, 2), Math.pow(base, 2)) > Number.MAX_SAFE_INTEGER) {
     throw new RangeError();
   }
-  a = a % m;
-  let result = 1;
-  while (n > 0) {
-    if ((n % 2) === 1) {
-      result = (result * a) % m;
+  let accumulator = 1;
+  while (exponent !== 0) {
+    if (exponent % 2 === 0) {
+      exponent /= 2;
+      base = (base * base) % modulus;
+    } else {
+      exponent -= 1;
+      accumulator = (accumulator * base) % modulus;
     }
-    n = Math.floor(n / 2);
-    a = (a * a) % m;
   }
-  return result;
+  return accumulator;
 }
 
 function isQuadraticResidueModuloPrime(a, p) {
+  a = BigInt(a);
+  p = Number(p);
   if (p === 2) {
     // "Modulo 2, every integer is a quadratic residue." - https://en.wikipedia.org/wiki/Quadratic_residue#Prime_modulus
     return true;
   }
-  console.assert(p % 2 === 1);
   // https://en.wikipedia.org/wiki/Euler%27s_criterion
   const amodp = Number(BigInt(a) % BigInt(p));
   if (amodp === 0) {
     return true;
   }
-  const value = modPow(amodp, (p - 1) / 2, p);
+  console.assert(p % 2 === 1);
+  const value = modPowSmall(amodp, (p - 1) / 2, p);
   console.assert(value === 1 || value === p - 1);
   return value === 1;
 }
 
-function L(N) {  // exp(sqrt(log(n)*log(log(n))))
+function log(N) {
   const e = Math.max(N.toString(16).length * 4 - 4 * 12, 0);
   const lnn = Math.log(Number(N >> BigInt(e))) + Math.log(2) * e;
+  return lnn;
+}
+
+function L(N) {  // exp(sqrt(log(n)*log(log(n))))
+  const lnn = log(N);
   return Math.exp(Math.sqrt(lnn * Math.log(lnn)));
 }
 
@@ -150,7 +159,7 @@ function product(array) {
 function isSmoothOverProduct(a, product, product1) {
   a = a < 0n ? -a : a;
   if (BigInt.asUintN(64, a) !== a) {
-    var g1 = gcd(a, product1);
+    const g1 = gcd(a, product1);
     if (g1 !== 1n) {
       a /= g1;
     }
@@ -168,31 +177,35 @@ function isSmoothOverProduct(a, product, product1) {
 }
 
 function getSmoothFactorization(a, base) {  
-  if (a === 0n) {
-    throw new RangeError();
+  let value = BigInt(a);
+  if (value === 0n) {
+    return [];
   }
-  var value = BigInt(a);
-  var result = new Array(1 + base.length).fill(0);
-  result[0] = value < 0n ? 1 : 0;
-  for (var i = 0; i < base.length; i += 1) {
-    var p = BigInt(base[i]);
+  let result = [];
+  if (value < 0n) {
+    result.push(-1);
+    value = -value;
+  }
+  for (let i = 0; i < base.length; i += 1) {
+    const p = BigInt(base[i]);
     while (value % p === 0n) {
       value /= p;
-      result[1 + i] += 1;
+      result.push(p);
     }
   }
-  return value === 1n || value === -1n ? result : null;
+  return value === 1n ? result : null;
 }
 
 // (X**2 - Y) % N === 0, where Y is a smooth number
-function CongruenceOfsquareOfXminusYmoduloN(X, Y, N) {
+function CongruenceOfsquareOfXminusYmoduloN(X, Y, N, factorization) {
   this.X = X;
   this.Y = Y;
   this.N = N;
+  this.factorization = factorization;
 }
 CongruenceOfsquareOfXminusYmoduloN.prototype.toString = function () {
   const X = this.X, Y = this.Y, N = this.N;
-  return 'X**2 ≡ Y (mod N)'.replaceAll('X', X).replaceAll('Y', Y).replaceAll('N', N);
+  return 'X**2 ≡ Y (mod N), Y = F'.replaceAll('X', X).replaceAll('Y', Y).replaceAll('N', N).replaceAll('F', this.factorization.join(' * '));
 };
 
 function modInverse(a, m) {
@@ -218,6 +231,31 @@ function modInverse(a, m) {
 function congruencesUsingContinuedFraction(primes, n) {
   const USE_LP_STRATEGY = true; // large primes
   let largePrimes = USE_LP_STRATEGY ? Object.create(null) : null; // prime -> congruence which needs this prime in base additionaly
+
+  const lpStrategy = function (p, X, Y) {
+    // https://ru.wikipedia.org/wiki/Алгоритм_Диксона#Стратегия_LP
+    const lp = largePrimes[p];
+    if (lp == undefined) {
+      largePrimes[p] = {X: X, Y: Y};
+    } else {
+      const s = BigInt(p);
+      const sInverse = modInverse(s, n);
+      if (sInverse === 0n) {
+        return new CongruenceOfsquareOfXminusYmoduloN(s, 0n, n, null);//?
+      } else {
+        const X1 = (sInverse * lp.X * X) % n;
+        if (Y % s === 0n && lp.Y % s === 0n) {
+          const Y1 = (lp.Y / s) * (Y / s);
+          const factorization = getSmoothFactorization(Y1, primes);
+          if (factorization != null) {
+            return new CongruenceOfsquareOfXminusYmoduloN(X1, Y1, n, factorization);
+          }
+        }
+      }
+    }
+    return null;
+  };
+
   const primesProduct = product(primes);
   //const product1 = BigInt(primes.reduce((p, prime) => p * Number(prime) <= Number.MAX_SAFE_INTEGER ? p * Number(prime) : p, 1));
   const product1 = product(primes.slice(0, 11));
@@ -237,14 +275,13 @@ function congruencesUsingContinuedFraction(primes, n) {
         const Y = (X * X + d) % n - d; // (A_k)^2 mod n
         //console.log(X, Y);
         if (Y === 0n) {
-          return {value: new CongruenceOfsquareOfXminusYmoduloN(X, Y, n), done: false};
+          return {value: new CongruenceOfsquareOfXminusYmoduloN(X, 0n, n, null), done: false};
         } else {
           const s = isSmoothOverProduct(Y, primesProduct, product1);
           if (s === 1n) {
-            return {value: new CongruenceOfsquareOfXminusYmoduloN(X, Y, n), done: false};
+            return {value: new CongruenceOfsquareOfXminusYmoduloN(X, Y, n, getSmoothFactorization(Y, primes)), done: false};
           } else {
             if (USE_LP_STRATEGY) {
-              // https://ru.wikipedia.org/wiki/Алгоритм_Диксона#Стратегия_LP
               const B = primes.length === 0 ? 1 : Number(primes[primes.length - 1]);
               const lp = Number(s);
               if (lp <= Math.min(B * B, Number.MAX_SAFE_INTEGER)) {
@@ -252,19 +289,9 @@ function congruencesUsingContinuedFraction(primes, n) {
                 //if (!isPrime(s)) {
                 //  throw new RangeError();
                 //}
-                const largePrimeCongruence = largePrimes[lp];
-                if (largePrimeCongruence == undefined) {
-                  largePrimes[lp] = new CongruenceOfsquareOfXminusYmoduloN(X, Y, n);
-                } else {
-                  const sInverse = modInverse(s, n);
-                  if (sInverse === 0n) {
-                    return {value: new CongruenceOfsquareOfXminusYmoduloN(s, 0n, n), done: false};
-                  } else {
-                    const X1 = (sInverse * largePrimeCongruence.X * X) % n;
-                    const Y1 = (X1 * X1 + d) % n - d;
-                    console.assert(isSmoothOverProduct(Y1, primesProduct, product1) === 1n);
-                    return {value: new CongruenceOfsquareOfXminusYmoduloN(X1, Y1, n), done: false};
-                  }
+                const c = lpStrategy(lp, X, Y);
+                if (c != null) {
+                  return {value: c, done: false};
                 }
               }
             }
@@ -290,11 +317,11 @@ BitSet.prototype.has = function (index) {
   }
   return (this.data[Math.floor(index / 32)] & (1 << (index % 32))) !== 0;
 };
-BitSet.prototype.add = function (index) {
+BitSet.prototype.toggle = function (index) {
   if (index >= this.size) {
     throw new RangeError();
   }
-  this.data[Math.floor(index / 32)] |= (1 << (index % 32));
+  this.data[Math.floor(index / 32)] ^= (1 << (index % 32));
 };
 BitSet.prototype.xor = function (other) {
   const n = other.data.length;
@@ -309,8 +336,9 @@ BitSet.prototype.toString = function () {
   return this.data.map(x => (x >>> 0).toString(2).padStart(32, '0').split('').reverse().join('')).join('').slice(0, this.size);
 };
 
-// pass factorizations with associated values (arrays of powers) to the next call
+// pass factorizations with associated values to the next call
 // returns linear combinations of vectors which result in zero vector by modulo 2
+// (basis of the kernel of the matrix)
 function solve(matrixSize) {
   // We build the augmented matrix in row-echelon form with permuted rows, which can grow up to matrixSize rows:
   const M = new Array(matrixSize).fill(null); // We will fill the matrix so pivot elements will be placed on the diagonal
@@ -327,13 +355,8 @@ function solve(matrixSize) {
         state = 1;
         const [rawRow, associatedValue] = tmp;
         let row = new BitSet(matrixSize + matrixSize);
-        if (rawRow.length !== matrixSize) {
-          throw new RangeError();
-        }
-        for (let j = 0; j < matrixSize; j += 1) {
-          if (rawRow[j] % 2 !== 0) {
-            row.add(j);
-          }
+        for (let j = 0; j < rawRow.length; j += 1) {
+          row.toggle(rawRow[j]);
         }
         // add row to the matrix maintaining it to be in row-echelon form:
         for (let pivotColumn = 0; pivotColumn < matrixSize && row != null; pivotColumn += 1) {
@@ -343,7 +366,7 @@ function solve(matrixSize) {
               // row-reduction:
               row.xor(pivotRow);
             } else {
-              row.add(matrixSize + pivotColumn);
+              row.toggle(matrixSize + pivotColumn);
               associatedValues[pivotColumn] = associatedValue;
               M[pivotColumn] = row;
               row = null;
@@ -389,6 +412,10 @@ function primes(MAX) {
   return result;
 }
 
+function abs(x) {
+  return x < 0n ? -x : x;
+}
+
 function ContinuedFractionFactorization(N) {
   N = BigInt(N);
   //if (isPrime(N)) {
@@ -409,14 +436,14 @@ function ContinuedFractionFactorization(N) {
     solutions.next();
     let c = null;
     while ((c = congruences.next().value) != undefined) {
-      const solution = c.Y === 0n ? [c] : solutions.next([getSmoothFactorization(c.Y, primeBase), c]).value;
+      const solution = c.Y === 0n ? [c] : solutions.next([c.factorization.map(p => p === -1 ? 0 : 1 + primeBase.indexOf(p)), c]).value;
       if (solution != null) {
         const X = product(solution.map(c => c.X));
         const Y = product(solution.map(c => c.Y)); // = sqrt(X**2 % N)
         const x = X;
         const y = BigInt(sqrt(Y));
         console.assert(y * y === BigInt(Y));
-        const g = gcd(x + y, N);
+        const g = gcd(abs(x + y), N);
         if (g !== 1n && g !== N) {
           return g;
         }
